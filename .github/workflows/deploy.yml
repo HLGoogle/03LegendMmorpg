@@ -1,0 +1,25 @@
+name: Deploy MMO Server
+
+on:
+  push:
+    branches:
+      - main  # 你的主分支是 main
+    paths:
+      - 'src/**'
+      - 'wrangler.toml'
+      - '.github/workflows/**'
+  workflow_dispatch: # 这个配置允许我们在网页上手动点击运行部署
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Cloudflare Worker
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 使用 Wrangler 部署到 Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
