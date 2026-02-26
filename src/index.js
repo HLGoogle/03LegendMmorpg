@@ -55,6 +55,42 @@ export class GameRoom {
           this.players[playerId].y = data.y;
           this.broadcast({ type: 'move', id: playerId, x: data.x, y: data.y });
         }
+        
+      } else if (data.type === 'chat') {
+        // 聊天处理逻辑：拦截聊天消息并分发
+        const sender = this.players[playerId];
+        if (!sender) return;
+
+        const chatMsg = {
+          type: 'chat',
+          channel: data.channel,
+          sender: sender.name,
+          color: sender.color,
+          text: data.text
+        };
+
+        if (data.channel === '私聊' && data.target) {
+          // 私聊逻辑：遍历寻找目标玩家的 WebSocket 连接
+          let targetSession = null;
+          for (const [session, pId] of this.sessions.entries()) {
+            if (this.players[pId] && this.players[pId].name === data.target) {
+              targetSession = session;
+              break;
+            }
+          }
+          if (targetSession) {
+            targetSession.send(JSON.stringify(chatMsg)); // 发给对方
+            if (targetSession !== server) server.send(JSON.stringify(chatMsg)); // 也发给自己一份显示
+          } else {
+            // 目标不存在或不在线
+            server.send(JSON.stringify({ 
+              type: 'chat', channel: '系统', text: `玩家 [${data.target}] 不在线或不存在。` 
+            }));
+          }
+        } else {
+          // 世界、团队、自定义频道：目前直接复用广播全服的逻辑
+          this.broadcast(chatMsg);
+        }
       }
     });
 
@@ -83,7 +119,7 @@ export class GameRoom {
 
 export default {
   async fetch(request, env) {
-    // 处理跨域，方便你在本地或 Github Pages 调试
+    // 处理跨域，方便在本地或 Github Pages 调试
     if (request.method === "OPTIONS") {
       return new Response(null, {
         headers: {
