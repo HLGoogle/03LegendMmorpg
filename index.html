@@ -42,36 +42,45 @@
             padding: 2px 6px; border-radius: 4px;
             font-size: 12px; white-space: nowrap; pointer-events: none;
         }
+
+        /* 【新增】头顶聊天气泡样式 */
+        .chat-bubble {
+            position: absolute;
+            bottom: 40px; /* 在玩家上方 */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            color: #333;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            white-space: normal; /* 允许换行 */
+            max-width: 180px; /* 最大宽度限制 */
+            text-align: center;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+            z-index: 50;
+            pointer-events: none; /* 不阻挡鼠标事件 */
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 弹出动画 */
+        }
+        /* 气泡底部的小尖角 */
+        .chat-bubble::after {
+            content: ''; position: absolute; top: 100%; left: 50%; margin-left: -6px;
+            border-width: 6px; border-style: solid; border-color: white transparent transparent transparent;
+        }
+        @keyframes popIn { from { opacity: 0; transform: translateX(-50%) scale(0.5); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
         
         #controls-tip { position: absolute; top: 20px; right: 20px; color: #7f8c8d; font-weight: bold; pointer-events: none; z-index: 100;}
 
-        /* --- 聊天面板样式（精炼、美观的毛玻璃效果） --- */
+        /* --- 聊天面板样式 --- */
         #chat-panel {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            width: 380px;
-            height: 250px;
-            min-width: 250px;
-            min-height: 150px;
-            max-width: 50vw;
-            max-height: 80vh;
-            background: rgba(30, 34, 43, 0.6);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            display: none; /* 默认隐藏，登录后显示 */
-            flex-direction: column;
-            z-index: 1000;
-            resize: both;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            color: #c9d1d9;
-            transition: background 0.3s;
+            position: fixed; bottom: 20px; left: 20px; width: 380px; height: 250px; min-width: 250px; min-height: 150px; max-width: 50vw; max-height: 80vh;
+            background: rgba(30, 34, 43, 0.6); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;
+            display: none; flex-direction: column; z-index: 1000; resize: both; overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); color: #c9d1d9; transition: background 0.3s;
         }
         #chat-panel:hover { background: rgba(30, 34, 43, 0.8); }
 
-        /* 频道标签栏 */
         .chat-tabs { display: flex; background: rgba(0, 0, 0, 0.2); border-bottom: 1px solid rgba(255,255,255,0.05); }
         .chat-tab {
             flex: 1; padding: 8px 0; text-align: center; font-size: 13px; cursor: pointer;
@@ -80,16 +89,11 @@
         .chat-tab:hover { color: white; background: rgba(255,255,255,0.05); }
         .chat-tab.active { color: #58a6ff; font-weight: bold; border-bottom: 2px solid #58a6ff; }
 
-        /* 消息展示区 */
-        #chat-messages {
-            flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 13px;
-        }
+        #chat-messages { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
         #chat-messages::-webkit-scrollbar { width: 4px; }
         #chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
         
-        /* 单条消息排版 */
-        .chat-msg { line-height: 1.4; word-break: break-all; animation: fadeIn 0.2s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .chat-msg { line-height: 1.4; word-break: break-all; }
         .msg-channel { font-weight: bold; margin-right: 4px; }
         .msg-channel.世界 { color: #d2a8ff; }
         .msg-channel.团队 { color: #7ee787; }
@@ -98,17 +102,9 @@
         .msg-channel.系统 { color: #f2cc60; }
         .msg-sender { font-weight: bold; margin-right: 6px; }
 
-        /* 输入区 */
-        .chat-input-area {
-            display: flex; padding: 8px; background: rgba(0, 0, 0, 0.3); gap: 6px; border-top: 1px solid rgba(255,255,255,0.05);
-        }
-        #chat-target {
-            width: 70px; display: none; background: rgba(255,255,255,0.1); border: none;
-            color: white; border-radius: 4px; padding: 4px 6px; font-size: 12px; outline: none; text-align: center;
-        }
-        #chat-input {
-            flex: 1; background: transparent; border: none; color: white; font-size: 13px; outline: none;
-        }
+        .chat-input-area { display: flex; padding: 8px; background: rgba(0, 0, 0, 0.3); gap: 6px; border-top: 1px solid rgba(255,255,255,0.05); }
+        #chat-target { width: 70px; display: none; background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 4px; padding: 4px 6px; font-size: 12px; outline: none; text-align: center; }
+        #chat-input { flex: 1; background: transparent; border: none; color: white; font-size: 13px; outline: none; }
         #chat-input::placeholder { color: #6e7681; }
     </style>
 </head>
@@ -148,16 +144,13 @@
         let playersData = {}; 
         
         const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
-        let myX = 0;
-        let myY = 0;
-        const SPEED = 5; 
+        let myX = 0; myY = 0; const SPEED = 5; 
 
         const loginScreen = document.getElementById('login-screen');
         const joinBtn = document.getElementById('join-btn');
         const usernameInput = document.getElementById('username');
         const gameBoard = document.getElementById('game-board');
 
-        // 聊天相关的 DOM
         let currentChannel = '世界';
         const chatPanel = document.getElementById('chat-panel');
         const chatMessages = document.getElementById('chat-messages');
@@ -175,7 +168,7 @@
 
             ws.onopen = () => {
                 loginScreen.style.display = 'none';
-                chatPanel.style.display = 'flex'; // 登录成功显示聊天窗
+                chatPanel.style.display = 'flex';
                 ws.send(JSON.stringify({ type: 'join', name: name }));
                 requestAnimationFrame(gameLoop);
             };
@@ -199,9 +192,7 @@
                     playersData = data.players;
                     myX = playersData[myId].x;
                     myY = playersData[myId].y;
-                    for (const id in playersData) {
-                        createPlayerDOM(id, playersData[id]);
-                    }
+                    for (const id in playersData) createPlayerDOM(id, playersData[id]);
                     break;
                 case 'join':
                     playersData[data.id] = data.player;
@@ -226,7 +217,11 @@
                     if (el) el.remove();
                     break;
                 case 'chat':
-                    appendMessage(data); // 接收聊天消息
+                    appendMessage(data); // 1. 面板显示消息
+                    // 2. 【新增】显示头顶气泡（如果是玩家发的消息）
+                    if (data.id && playersData[data.id]) {
+                        showChatBubble(data.id, data.text);
+                    }
                     break;
             }
         }
@@ -258,7 +253,7 @@
             }
         }
 
-        // --- 4. 聊天面板逻辑 ---
+        // --- 4. 聊天相关逻辑 ---
         chatTabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 chatTabs.forEach(t => t.classList.remove('active'));
@@ -266,11 +261,9 @@
                 currentChannel = tab.dataset.channel;
                 
                 if (currentChannel === '私聊') {
-                    chatTarget.style.display = 'block';
-                    chatTarget.focus();
+                    chatTarget.style.display = 'block'; chatTarget.focus();
                 } else {
-                    chatTarget.style.display = 'none';
-                    chatInput.focus();
+                    chatTarget.style.display = 'none'; chatInput.focus();
                 }
             });
         });
@@ -279,44 +272,65 @@
             if (e.key === 'Enter') {
                 const text = chatInput.value.trim();
                 if (!text) return;
-                
                 const target = chatTarget.value.trim();
                 if (currentChannel === '私聊' && !target) {
                     appendMessage({ channel: '系统', text: '请输入私聊玩家名' });
                     return;
                 }
-
-                ws.send(JSON.stringify({
-                    type: 'chat',
-                    channel: currentChannel,
-                    target: target,
-                    text: text
-                }));
-                
+                ws.send(JSON.stringify({ type: 'chat', channel: currentChannel, target: target, text: text }));
                 chatInput.value = ''; 
             }
         });
 
+        // 【重要修复】安全的追加消息函数 (修复 XSS 漏洞)
         function appendMessage(msg) {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'chat-msg';
             
+            // 1. 安全的 HTML 部分 (频道和发送者)
             let html = `<span class="msg-channel ${msg.channel}">[${msg.channel}]</span>`;
             if (msg.sender) {
                 html += `<span class="msg-sender" style="color: ${msg.color || '#fff'}">${msg.sender}:</span>`;
             }
-            html += `<span style="color:#c9d1d9">${msg.text}</span>`;
+            msgDiv.innerHTML = html; // 设置前半部分
+
+            // 2. 【安全修复】使用 textContent 插入用户输入的内容
+            const textSpan = document.createElement('span');
+            textSpan.style.color = '#c9d1d9';
+            textSpan.textContent = msg.text; 
+            msgDiv.appendChild(textSpan); // 追加安全的文本节点
             
-            msgDiv.innerHTML = html;
             chatMessages.appendChild(msgDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // --- 5. 本地移动与同步逻辑 (游戏循环) ---
-        window.addEventListener('keydown', e => { 
-            // 【重要修复】：如果焦点在输入框内，阻止触发移动逻辑
-            if (e.target.tagName === 'INPUT') return; 
+        // 【新增】显示头顶气泡函数
+        function showChatBubble(playerId, text) {
+            const playerEl = document.getElementById(`player-${playerId}`);
+            if (!playerEl) return;
 
+            // 如果已有气泡，先移除旧的，避免堆叠
+            const oldBubble = playerEl.querySelector('.chat-bubble');
+            if (oldBubble) oldBubble.remove();
+
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble';
+            // 【安全】使用 textContent 防止 XSS
+            bubble.textContent = text; 
+
+            playerEl.appendChild(bubble);
+
+            // 5秒后自动移除
+            setTimeout(() => {
+               if (bubble.parentElement) {
+                   bubble.remove();
+               }
+            }, 5000);
+        }
+
+        // --- 5. 游戏循环与控制 ---
+        window.addEventListener('keydown', e => { 
+            if (e.target.tagName === 'INPUT') return; 
             const k = e.key.toLowerCase();
             if (keys.hasOwnProperty(k)) keys[k] = true; 
             if (keys.hasOwnProperty(e.key)) keys[e.key] = true; 
@@ -324,7 +338,6 @@
         
         window.addEventListener('keyup', e => { 
             if (e.target.tagName === 'INPUT') return;
-
             const k = e.key.toLowerCase();
             if (keys.hasOwnProperty(k)) keys[k] = false; 
             if (keys.hasOwnProperty(e.key)) keys[e.key] = false; 
@@ -337,10 +350,8 @@
                 if (keys.s || keys.ArrowDown)  { myY += SPEED; moved = true; }
                 if (keys.a || keys.ArrowLeft)  { myX -= SPEED; moved = true; }
                 if (keys.d || keys.ArrowRight) { myX += SPEED; moved = true; }
-
                 myX = Math.max(15, Math.min(window.innerWidth - 15, myX));
                 myY = Math.max(15, Math.min(window.innerHeight - 15, myY));
-
                 if (moved) {
                     updatePlayerDOM(myId, myX, myY);
                     ws.send(JSON.stringify({ type: 'move', x: myX, y: myY }));
