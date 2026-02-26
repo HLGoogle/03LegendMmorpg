@@ -174,33 +174,42 @@
             }
         }
 
-        // --- 4. 本地移动与同步逻辑 (游戏循环) ---
-        window.addEventListener('keydown', e => { if (keys.hasOwnProperty(e.key)) keys[e.key] = true; });
-        window.addEventListener('keyup', e => { if (keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+       // --- 4. 本地移动与同步逻辑 (游戏循环) ---
+        // 修复：转为小写，防止大写锁定导致按键失效
+        window.addEventListener('keydown', e => { 
+            const k = e.key.toLowerCase();
+            if (keys.hasOwnProperty(k)) keys[k] = true; 
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = true; // 兼容方向键
+        });
+        window.addEventListener('keyup', e => { 
+            const k = e.key.toLowerCase();
+            if (keys.hasOwnProperty(k)) keys[k] = false; 
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = false; 
+        });
 
         function gameLoop() {
-            if (!myId) return;
+            // 修复：确保即使没有 ID 时，循环也会继续等待，而不是彻底死掉
+            if (myId) {
+                let moved = false;
+                // 键盘控制移动
+                if (keys.w || keys.ArrowUp)    { myY -= SPEED; moved = true; }
+                if (keys.s || keys.ArrowDown)  { myY += SPEED; moved = true; }
+                if (keys.a || keys.ArrowLeft)  { myX -= SPEED; moved = true; }
+                if (keys.d || keys.ArrowRight) { myX += SPEED; moved = true; }
 
-            let moved = false;
-            // 键盘控制移动
-            if (keys.w || keys.ArrowUp)    { myY -= SPEED; moved = true; }
-            if (keys.s || keys.ArrowDown)  { myY += SPEED; moved = true; }
-            if (keys.a || keys.ArrowLeft)  { myX -= SPEED; moved = true; }
-            if (keys.d || keys.ArrowRight) { myX += SPEED; moved = true; }
+                // 限制不要跑出屏幕外 (边界碰撞)
+                myX = Math.max(15, Math.min(window.innerWidth - 15, myX));
+                myY = Math.max(15, Math.min(window.innerHeight - 15, myY));
 
-            // 限制不要跑出屏幕外 (边界碰撞)
-            myX = Math.max(15, Math.min(window.innerWidth - 15, myX));
-            myY = Math.max(15, Math.min(window.innerHeight - 15, myY));
-
-            if (moved) {
-                // 本地立即更新 UI（实现零延迟手感）
-                updatePlayerDOM(myId, myX, myY);
-                
-                // 将新坐标发送给 Durable Object 广播
-                ws.send(JSON.stringify({ type: 'move', x: myX, y: myY }));
+                if (moved) {
+                    // 本地立即更新 UI
+                    updatePlayerDOM(myId, myX, myY);
+                    // 发送给后端
+                    ws.send(JSON.stringify({ type: 'move', x: myX, y: myY }));
+                }
             }
 
-            // 保持循环
+            // 保持循环永远在运行
             requestAnimationFrame(gameLoop);
         }
     </script>
