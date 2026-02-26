@@ -1,0 +1,15 @@
+name = "mmo-sync-server"
+main = "src/index.js"
+compatibility_date = "2024-02-25"
+
+# 1. 绑定 Durable Object 命名空间
+# 这对应了你 js 代码里的 env.GAME_ROOM
+[[durable_objects.bindings]]
+name = "GAME_ROOM"
+class_name = "GameRoom"
+
+# 2. Durable Objects 的状态迁移记录
+# 第一次部署必须带有这个，告诉 Cloudflare 为 GameRoom 这个类分配持久化存储
+[[migrations]]
+tag = "v1"
+new_classes = ["GameRoom"]
