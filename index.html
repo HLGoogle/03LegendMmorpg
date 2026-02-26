@@ -11,7 +11,7 @@
             position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
             background-color: rgba(44, 62, 80, 0.95);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 100; color: white;
+            z-index: 2000; color: white;
         }
         #login-screen h1 { margin-bottom: 20px; }
         #username { padding: 10px 15px; font-size: 16px; border: none; border-radius: 5px; outline: none; width: 200px; text-align: center; }
@@ -22,7 +22,6 @@
         #game-board {
             position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
             background-color: #ecf0f1;
-            /* 添加一点网格背景增加空间感 */
             background-image: linear-gradient(#bdc3c7 1px, transparent 1px), linear-gradient(90deg, #bdc3c7 1px, transparent 1px);
             background-size: 50px 50px;
         }
@@ -31,8 +30,8 @@
         .player {
             position: absolute; width: 30px; height: 30px;
             border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transform: translate(-50%, -50%); /* 居中对齐坐标 */
-            transition: left 0.05s linear, top 0.05s linear; /* 其他玩家移动时的平滑过渡 */
+            transform: translate(-50%, -50%);
+            transition: left 0.05s linear, top 0.05s linear;
         }
 
         /* 玩家名字标签 */
@@ -44,7 +43,73 @@
             font-size: 12px; white-space: nowrap; pointer-events: none;
         }
         
-        #controls-tip { position: absolute; bottom: 20px; left: 20px; color: #7f8c8d; font-weight: bold; pointer-events: none;}
+        #controls-tip { position: absolute; top: 20px; right: 20px; color: #7f8c8d; font-weight: bold; pointer-events: none; z-index: 100;}
+
+        /* --- 聊天面板样式（精炼、美观的毛玻璃效果） --- */
+        #chat-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 380px;
+            height: 250px;
+            min-width: 250px;
+            min-height: 150px;
+            max-width: 50vw;
+            max-height: 80vh;
+            background: rgba(30, 34, 43, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            display: none; /* 默认隐藏，登录后显示 */
+            flex-direction: column;
+            z-index: 1000;
+            resize: both;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            color: #c9d1d9;
+            transition: background 0.3s;
+        }
+        #chat-panel:hover { background: rgba(30, 34, 43, 0.8); }
+
+        /* 频道标签栏 */
+        .chat-tabs { display: flex; background: rgba(0, 0, 0, 0.2); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .chat-tab {
+            flex: 1; padding: 8px 0; text-align: center; font-size: 13px; cursor: pointer;
+            color: #8b949e; user-select: none; transition: 0.2s;
+        }
+        .chat-tab:hover { color: white; background: rgba(255,255,255,0.05); }
+        .chat-tab.active { color: #58a6ff; font-weight: bold; border-bottom: 2px solid #58a6ff; }
+
+        /* 消息展示区 */
+        #chat-messages {
+            flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 13px;
+        }
+        #chat-messages::-webkit-scrollbar { width: 4px; }
+        #chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+        
+        /* 单条消息排版 */
+        .chat-msg { line-height: 1.4; word-break: break-all; animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .msg-channel { font-weight: bold; margin-right: 4px; }
+        .msg-channel.世界 { color: #d2a8ff; }
+        .msg-channel.团队 { color: #7ee787; }
+        .msg-channel.自定义 { color: #a5d6ff; }
+        .msg-channel.私聊 { color: #ff7b72; }
+        .msg-channel.系统 { color: #f2cc60; }
+        .msg-sender { font-weight: bold; margin-right: 6px; }
+
+        /* 输入区 */
+        .chat-input-area {
+            display: flex; padding: 8px; background: rgba(0, 0, 0, 0.3); gap: 6px; border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        #chat-target {
+            width: 70px; display: none; background: rgba(255,255,255,0.1); border: none;
+            color: white; border-radius: 4px; padding: 4px 6px; font-size: 12px; outline: none; text-align: center;
+        }
+        #chat-input {
+            flex: 1; background: transparent; border: none; color: white; font-size: 13px; outline: none;
+        }
+        #chat-input::placeholder { color: #6e7681; }
     </style>
 </head>
 <body>
@@ -58,24 +123,47 @@
     <div id="game-board"></div>
     <div id="controls-tip">操作方式：W A S D 或 方向键移动</div>
 
+    <div id="chat-panel">
+        <div class="chat-tabs">
+            <div class="chat-tab active" data-channel="世界">世界</div>
+            <div class="chat-tab" data-channel="团队">团队</div>
+            <div class="chat-tab" data-channel="自定义">自定义</div>
+            <div class="chat-tab" data-channel="私聊">私聊</div>
+        </div>
+        <div id="chat-messages">
+            <div class="chat-msg"><span class="msg-channel 系统">[系统]</span><span style="color:#c9d1d9">欢迎来到 2D 世界！右下角可拖拽调整窗口大小。</span></div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-target" placeholder="玩家名">
+            <input type="text" id="chat-input" placeholder="按 Enter 发送消息..." maxlength="100">
+        </div>
+    </div>
+
     <script>
         // 【重要】在这里填入你部署好的 Worker 地址
         const WORKER_URL = 'wss://mmo-sync-server.hl273573221.workers.dev';
         
         let ws;
         let myId = null;
-        let playersData = {}; // 存储所有玩家数据的本地副本
+        let playersData = {}; 
         
-        // 移动相关的状态
         const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
         let myX = 0;
         let myY = 0;
-        const SPEED = 5; // 移动速度
+        const SPEED = 5; 
 
         const loginScreen = document.getElementById('login-screen');
         const joinBtn = document.getElementById('join-btn');
         const usernameInput = document.getElementById('username');
         const gameBoard = document.getElementById('game-board');
+
+        // 聊天相关的 DOM
+        let currentChannel = '世界';
+        const chatPanel = document.getElementById('chat-panel');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const chatTarget = document.getElementById('chat-target');
+        const chatTabs = document.querySelectorAll('.chat-tab');
 
         // --- 1. 登录与连接 WebSocket ---
         joinBtn.addEventListener('click', () => {
@@ -87,9 +175,8 @@
 
             ws.onopen = () => {
                 loginScreen.style.display = 'none';
-                // 发送加入消息
+                chatPanel.style.display = 'flex'; // 登录成功显示聊天窗
                 ws.send(JSON.stringify({ type: 'join', name: name }));
-                // 启动游戏循环
                 requestAnimationFrame(gameLoop);
             };
 
@@ -104,49 +191,47 @@
             };
         });
 
-        // --- 2. 处理服务器广播的数据 ---
+        // --- 2. 处理服务器数据 ---
         function handleServerMessage(data) {
             switch (data.type) {
                 case 'init':
-                    // 初始化当前世界的所有玩家
                     myId = data.id;
                     playersData = data.players;
                     myX = playersData[myId].x;
                     myY = playersData[myId].y;
-                    
-                    // 渲染所有人
                     for (const id in playersData) {
                         createPlayerDOM(id, playersData[id]);
                     }
                     break;
-
                 case 'join':
-                    // 有新玩家加入
                     playersData[data.id] = data.player;
                     if (data.id !== myId) {
                         createPlayerDOM(data.id, data.player);
+                        appendMessage({ channel: '系统', text: `玩家 ${data.player.name} 加入了世界。` });
                     }
                     break;
-
                 case 'move':
-                    // 某人移动了
                     if (playersData[data.id] && data.id !== myId) {
                         playersData[data.id].x = data.x;
                         playersData[data.id].y = data.y;
                         updatePlayerDOM(data.id, data.x, data.y);
                     }
                     break;
-
                 case 'leave':
-                    // 某人断线离开
-                    delete playersData[data.id];
+                    if (playersData[data.id]) {
+                        appendMessage({ channel: '系统', text: `玩家 ${playersData[data.id].name} 离开了世界。` });
+                        delete playersData[data.id];
+                    }
                     const el = document.getElementById(`player-${data.id}`);
                     if (el) el.remove();
+                    break;
+                case 'chat':
+                    appendMessage(data); // 接收聊天消息
                     break;
             }
         }
 
-        // --- 3. DOM 渲染逻辑 ---
+        // --- 3. DOM 渲染 ---
         function createPlayerDOM(id, player) {
             const el = document.createElement('div');
             el.id = `player-${id}`;
@@ -155,7 +240,6 @@
             el.style.left = `${player.x}px`;
             el.style.top = `${player.y}px`;
 
-            // 如果是自己，加个金边区分一下
             if (id === myId) el.style.border = "3px solid #f1c40f";
 
             const nameTag = document.createElement('div');
@@ -174,42 +258,94 @@
             }
         }
 
-       // --- 4. 本地移动与同步逻辑 (游戏循环) ---
-        // 修复：转为小写，防止大写锁定导致按键失效
+        // --- 4. 聊天面板逻辑 ---
+        chatTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                chatTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentChannel = tab.dataset.channel;
+                
+                if (currentChannel === '私聊') {
+                    chatTarget.style.display = 'block';
+                    chatTarget.focus();
+                } else {
+                    chatTarget.style.display = 'none';
+                    chatInput.focus();
+                }
+            });
+        });
+
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const text = chatInput.value.trim();
+                if (!text) return;
+                
+                const target = chatTarget.value.trim();
+                if (currentChannel === '私聊' && !target) {
+                    appendMessage({ channel: '系统', text: '请输入私聊玩家名' });
+                    return;
+                }
+
+                ws.send(JSON.stringify({
+                    type: 'chat',
+                    channel: currentChannel,
+                    target: target,
+                    text: text
+                }));
+                
+                chatInput.value = ''; 
+            }
+        });
+
+        function appendMessage(msg) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-msg';
+            
+            let html = `<span class="msg-channel ${msg.channel}">[${msg.channel}]</span>`;
+            if (msg.sender) {
+                html += `<span class="msg-sender" style="color: ${msg.color || '#fff'}">${msg.sender}:</span>`;
+            }
+            html += `<span style="color:#c9d1d9">${msg.text}</span>`;
+            
+            msgDiv.innerHTML = html;
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // --- 5. 本地移动与同步逻辑 (游戏循环) ---
         window.addEventListener('keydown', e => { 
+            // 【重要修复】：如果焦点在输入框内，阻止触发移动逻辑
+            if (e.target.tagName === 'INPUT') return; 
+
             const k = e.key.toLowerCase();
             if (keys.hasOwnProperty(k)) keys[k] = true; 
-            if (keys.hasOwnProperty(e.key)) keys[e.key] = true; // 兼容方向键
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = true; 
         });
+        
         window.addEventListener('keyup', e => { 
+            if (e.target.tagName === 'INPUT') return;
+
             const k = e.key.toLowerCase();
             if (keys.hasOwnProperty(k)) keys[k] = false; 
             if (keys.hasOwnProperty(e.key)) keys[e.key] = false; 
         });
 
         function gameLoop() {
-            // 修复：确保即使没有 ID 时，循环也会继续等待，而不是彻底死掉
             if (myId) {
                 let moved = false;
-                // 键盘控制移动
                 if (keys.w || keys.ArrowUp)    { myY -= SPEED; moved = true; }
                 if (keys.s || keys.ArrowDown)  { myY += SPEED; moved = true; }
                 if (keys.a || keys.ArrowLeft)  { myX -= SPEED; moved = true; }
                 if (keys.d || keys.ArrowRight) { myX += SPEED; moved = true; }
 
-                // 限制不要跑出屏幕外 (边界碰撞)
                 myX = Math.max(15, Math.min(window.innerWidth - 15, myX));
                 myY = Math.max(15, Math.min(window.innerHeight - 15, myY));
 
                 if (moved) {
-                    // 本地立即更新 UI
                     updatePlayerDOM(myId, myX, myY);
-                    // 发送给后端
                     ws.send(JSON.stringify({ type: 'move', x: myX, y: myY }));
                 }
             }
-
-            // 保持循环永远在运行
             requestAnimationFrame(gameLoop);
         }
     </script>
