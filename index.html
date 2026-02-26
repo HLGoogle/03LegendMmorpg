@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>2D 实时同步世界</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #2c3e50; }
+        
+        /* 登录界面样式 */
+        #login-screen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: rgba(44, 62, 80, 0.95);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100; color: white;
+        }
+        #login-screen h1 { margin-bottom: 20px; }
+        #username { padding: 10px 15px; font-size: 16px; border: none; border-radius: 5px; outline: none; width: 200px; text-align: center; }
+        #join-btn { margin-top: 15px; padding: 10px 30px; font-size: 16px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; transition: 0.2s; }
+        #join-btn:hover { background-color: #2980b9; }
+
+        /* 游戏场景样式 */
+        #game-board {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #ecf0f1;
+            /* 添加一点网格背景增加空间感 */
+            background-image: linear-gradient(#bdc3c7 1px, transparent 1px), linear-gradient(90deg, #bdc3c7 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        /* 玩家圆点样式 */
+        .player {
+            position: absolute; width: 30px; height: 30px;
+            border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transform: translate(-50%, -50%); /* 居中对齐坐标 */
+            transition: left 0.05s linear, top 0.05s linear; /* 其他玩家移动时的平滑过渡 */
+        }
+
+        /* 玩家名字标签 */
+        .player-name {
+            position: absolute; top: -25px; left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.6); color: white;
+            padding: 2px 6px; border-radius: 4px;
+            font-size: 12px; white-space: nowrap; pointer-events: none;
+        }
+        
+        #controls-tip { position: absolute; bottom: 20px; left: 20px; color: #7f8c8d; font-weight: bold; pointer-events: none;}
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <h1>进入 2D 世界</h1>
+        <input type="text" id="username" placeholder="输入你的角色名" maxlength="10">
+        <button id="join-btn">连接服务器</button>
+    </div>
+
+    <div id="game-board"></div>
+    <div id="controls-tip">操作方式：W A S D 或 方向键移动</div>
+
+    <script>
+        // 【重要】在这里填入你部署好的 Worker 地址
+        const WORKER_URL = 'wss://mmo-sync-server.你的账号名.workers.dev'; 
+        
+        let ws;
+        let myId = null;
+        let playersData = {}; // 存储所有玩家数据的本地副本
+        
+        // 移动相关的状态
+        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
+        let myX = 0;
+        let myY = 0;
+        const SPEED = 5; // 移动速度
+
+        const loginScreen = document.getElementById('login-screen');
+        const joinBtn = document.getElementById('join-btn');
+        const usernameInput = document.getElementById('username');
+        const gameBoard = document.getElementById('game-board');
+
+        // --- 1. 登录与连接 WebSocket ---
+        joinBtn.addEventListener('click', () => {
+            const name = usernameInput.value.trim();
+            if (!name) return alert("请输入角色名！");
+
+            joinBtn.innerText = "连接中...";
+            ws = new WebSocket(WORKER_URL);
+
+            ws.onopen = () => {
+                loginScreen.style.display = 'none';
+                // 发送加入消息
+                ws.send(JSON.stringify({ type: 'join', name: name }));
+                // 启动游戏循环
+                requestAnimationFrame(gameLoop);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleServerMessage(data);
+            };
+
+            ws.onclose = () => {
+                alert("与服务器断开连接");
+                location.reload();
+            };
+        });
+
+        // --- 2. 处理服务器广播的数据 ---
+        function handleServerMessage(data) {
+            switch (data.type) {
+                case 'init':
+                    // 初始化当前世界的所有玩家
+                    myId = data.id;
+                    playersData = data.players;
+                    myX = playersData[myId].x;
+                    myY = playersData[myId].y;
+                    
+                    // 渲染所有人
+                    for (const id in playersData) {
+                        createPlayerDOM(id, playersData[id]);
+                    }
+                    break;
+
+                case 'join':
+                    // 有新玩家加入
+                    playersData[data.id] = data.player;
+                    if (data.id !== myId) {
+                        createPlayerDOM(data.id, data.player);
+                    }
+                    break;
+
+                case 'move':
+                    // 某人移动了
+                    if (playersData[data.id] && data.id !== myId) {
+                        playersData[data.id].x = data.x;
+                        playersData[data.id].y = data.y;
+                        updatePlayerDOM(data.id, data.x, data.y);
+                    }
+                    break;
+
+                case 'leave':
+                    // 某人断线离开
+                    delete playersData[data.id];
+                    const el = document.getElementById(`player-${data.id}`);
+                    if (el) el.remove();
+                    break;
+            }
+        }
+
+        // --- 3. DOM 渲染逻辑 ---
+        function createPlayerDOM(id, player) {
+            const el = document.createElement('div');
+            el.id = `player-${id}`;
+            el.className = 'player';
+            el.style.backgroundColor = player.color;
+            el.style.left = `${player.x}px`;
+            el.style.top = `${player.y}px`;
+
+            // 如果是自己，加个金边区分一下
+            if (id === myId) el.style.border = "3px solid #f1c40f";
+
+            const nameTag = document.createElement('div');
+            nameTag.className = 'player-name';
+            nameTag.innerText = player.name;
+            el.appendChild(nameTag);
+
+            gameBoard.appendChild(el);
+        }
+
+        function updatePlayerDOM(id, x, y) {
+            const el = document.getElementById(`player-${id}`);
+            if (el) {
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+            }
+        }
+
+        // --- 4. 本地移动与同步逻辑 (游戏循环) ---
+        window.addEventListener('keydown', e => { if (keys.hasOwnProperty(e.key)) keys[e.key] = true; });
+        window.addEventListener('keyup', e => { if (keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+
+        function gameLoop() {
+            if (!myId) return;
+
+            let moved = false;
+            // 键盘控制移动
+            if (keys.w || keys.ArrowUp)    { myY -= SPEED; moved = true; }
+            if (keys.s || keys.ArrowDown)  { myY += SPEED; moved = true; }
+            if (keys.a || keys.ArrowLeft)  { myX -= SPEED; moved = true; }
+            if (keys.d || keys.ArrowRight) { myX += SPEED; moved = true; }
+
+            // 限制不要跑出屏幕外 (边界碰撞)
+            myX = Math.max(15, Math.min(window.innerWidth - 15, myX));
+            myY = Math.max(15, Math.min(window.innerHeight - 15, myY));
+
+            if (moved) {
+                // 本地立即更新 UI（实现零延迟手感）
+                updatePlayerDOM(myId, myX, myY);
+                
+                // 将新坐标发送给 Durable Object 广播
+                ws.send(JSON.stringify({ type: 'move', x: myX, y: myY }));
+            }
+
+            // 保持循环
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
