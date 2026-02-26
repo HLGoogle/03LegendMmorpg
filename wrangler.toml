@@ -12,4 +12,4 @@ class_name = "GameRoom"
 # 第一次部署必须带有这个，告诉 Cloudflare 为 GameRoom 这个类分配持久化存储
 [[migrations]]
 tag = "v1"
-new_classes = ["GameRoom"]
+new_sqlite_classes = ["GameRoom"]
