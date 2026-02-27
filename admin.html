@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>MMORPG 二进制地图编辑器</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; }
+        .toolbar { margin: 20px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .grid { display: grid; gap: 1px; background: #ccc; border: 1px solid #999; }
+        .cell { width: 25px; height: 25px; background: white; cursor: pointer; }
+        .cell:hover { opacity: 0.8; }
+        /* 不同类型的地块颜色 */
+        .cell.type-0 { background: white; }    /* 平地 */
+        .cell.type-1 { background: #333; }     /* 障碍物 */
+        .cell.type-2 { background: #3498db; }  /* 水域 */
+        .cell.type-3 { background: #e74c3c; }  /* 跳转点 (Portal) */
+        
+        .active-tool { outline: 3px solid #f1c40f; }
+        button { padding: 8px 15px; cursor: pointer; border: none; border-radius: 4px; background: #2ecc71; color: white; margin: 0 5px; }
+        button.tool { background: #95a5a6; }
+        button.tool.selected { background: #34495e; }
+    </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <strong>当前工具：</strong>
+    <button class="tool selected" onclick="setTool(0)" id="tool-0">平地</button>
+    <button class="tool" onclick="setTool(1)" id="tool-1">障碍</button>
+    <button class="tool" onclick="setTool(2)" id="tool-2">水域</button>
+    <button class="tool" onclick="setTool(3)" id="tool-3">跳转点</button>
+    |
+    <button onclick="exportBinary()">导出为 .bin (KV存储用)</button>
+    <button onclick="exportMeta()">导出跳转元数据 (JSON)</button>
+</div>
+
+<div id="grid-container" class="grid"></div>
+
+<div style="margin-top: 20px; color: #666; font-size: 14px;">
+    点击方格进行绘制 | 跳转点需要在下方配置具体目标
+</div>
+
+<script>
+    const ROWS = 20;
+    const COLS = 20;
+    let currentTool = 0;
+    let mapData = new Uint8Array(ROWS * COLS);
+    const portals = []; // 存储跳转逻辑
+
+    // 初始化网格
+    const container = document.getElementById('grid-container');
+    container.style.gridTemplateColumns = `repeat(${COLS}, 25px)`;
+
+    for (let i = 0; i < ROWS * COLS; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell type-0';
+        cell.dataset.index = i;
+        cell.onclick = () => paint(i, cell);
+        container.appendChild(cell);
+    }
+
+    function setTool(type) {
+        currentTool = type;
+        document.querySelectorAll('.tool').forEach(b => b.classList.remove('selected'));
+        document.getElementById(`tool-${type}`).classList.add('selected');
+    }
+
+    function paint(index, element) {
+        mapData[index] = currentTool;
+        element.className = `cell type-${currentTool}`;
+        
+        if (currentTool === 3) {
+            const x = index % COLS;
+            const y = Math.floor(index / COLS);
+            const target = prompt("输入跳转目标 (格式: mapId,targetX,targetY)", "forest_01,5,5");
+            if (target) {
+                const [mapId, tx, ty] = target.split(',');
+                portals.push({ x, y, targetMap: mapId, targetX: parseInt(tx), targetY: parseInt(ty) });
+            }
+        }
+    }
+
+    function exportBinary() {
+        const blob = new Blob([mapData], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'map_zone_1.bin';
+        a.click();
+    }
+
+    function exportMeta() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(portals, null, 2));
+        const a = document.createElement('a');
+        a.href = dataStr;
+        a.download = 'map_zone_1_portals.json';
+        a.click();
+    }
+</script>
+
+</body>
+</html>
