@@ -2,338 +2,327 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>2D 实时同步世界</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legend MMORPG - 开发者控制台</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #2c3e50; }
-        
-        /* 登录界面样式 */
-        #login-screen {
-            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-            background-color: rgba(44, 62, 80, 0.95);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 2000; color: white;
+        :root {
+            --tile-size: 50px; /* 每格大小感官 */
         }
-        #login-screen h1 { margin-bottom: 20px; }
-        #username { padding: 10px 15px; font-size: 16px; border: none; border-radius: 5px; outline: none; width: 200px; text-align: center; }
-        #join-btn { margin-top: 15px; padding: 10px 30px; font-size: 16px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; transition: 0.2s; }
-        #join-btn:hover { background-color: #2980b9; }
 
-        /* 游戏场景样式 */
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d1117; color: #c9d1d9;
+        }
+
+        /* 游戏大地图容器 */
+        #game-viewport {
+            position: relative; width: 100vw; height: 100vh;
+            overflow: auto; background: #010409;
+        }
+
         #game-board {
-            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-            background-color: #ecf0f1;
-            background-image: linear-gradient(#bdc3c7 1px, transparent 1px), linear-gradient(90deg, #bdc3c7 1px, transparent 1px);
-            background-size: 50px 50px;
+            position: relative; background-color: #161b22;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), 
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: var(--tile-size) var(--tile-size);
         }
 
-        /* 玩家圆点样式 */
+        /* 地形块 (DOM 渲染) */
+        .tile {
+            position: absolute; width: var(--tile-size); height: var(--tile-size);
+            box-sizing: border-box; pointer-events: none;
+        }
+        .tile-1 { background: #484f58; border: 1px solid #30363d; } /* 墙壁 */
+        .tile-2 { background: rgba(56, 139, 253, 0.4); border: 1px solid #388bfd; } /* 水域 */
+        .tile-3 { background: rgba(248, 81, 73, 0.2); border: 2px dashed #f85149; } /* 跳转点 */
+
+        /* 角色圆点 */
         .player {
             position: absolute; width: 30px; height: 30px;
-            border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border-radius: 50%; z-index: 100;
             transform: translate(-50%, -50%);
-            transition: left 0.05s linear, top 0.05s linear;
+            transition: left 0.1s linear, top 0.1s linear;
         }
-
-        /* 玩家名字标签 */
         .player-name {
             position: absolute; top: -23px; left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0,0,0,0.6); color: white;
-            padding: 2px 6px; border-radius: 4px;
+            transform: translateX(-50%); background: rgba(0,0,0,0.6);
+            color: white; padding: 2px 8px; border-radius: 4px;
             font-size: 12px; white-space: nowrap; pointer-events: none;
         }
 
-        /* 【优化修复】聊天气泡样式 */
+        /* 聊天气泡 (优化版) */
         .chat-bubble {
-            position: absolute;
-            bottom: 55px; 
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: white;
-            color: #333;
-            padding: 8px 14px;
-            border-radius: 12px;
-            font-size: 14px;
-            line-height: 1.4;
-            /* 关键修复属性 */
-            width: max-content;      /* 强制气泡根据文字内容撑开，不收缩到 30px */
-            min-width: 40px;        /* 保证最短宽度 */
-            max-width: 220px;       /* 超过这个宽度后再换行 */
-            white-space: normal;    /* 允许换行 */
-            word-wrap: break-word;  /* 英文长字符串折行 */
-            
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 50;
-            pointer-events: none;
+            position: absolute; bottom: 55px; left: 50%;
+            transform: translateX(-50%); background: white; color: #333;
+            padding: 8px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4;
+            width: max-content; min-width: 40px; max-width: 220px;
+            white-space: normal; word-wrap: break-word; text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 200;
             animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        
         .chat-bubble::after {
             content: ''; position: absolute; top: 100%; left: 50%; margin-left: -6px;
             border-width: 6px; border-style: solid; border-color: white transparent transparent transparent;
         }
-        @keyframes popIn { from { opacity: 0; transform: translateX(-50%) scale(0.5); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
-        
-        #controls-tip { position: absolute; top: 20px; right: 20px; color: #7f8c8d; font-weight: bold; pointer-events: none; z-index: 100;}
+        @keyframes popIn { from { opacity:0; transform:translateX(-50%) scale(0.5); } to { opacity:1; transform:translateX(-50%) scale(1); } }
 
-        /* --- 聊天面板样式 --- */
+        /* 聊天面板 */
         #chat-panel {
-            position: fixed; bottom: 20px; left: 20px; width: 380px; height: 250px; min-width: 250px; min-height: 150px; max-width: 50vw; max-height: 80vh;
-            background: rgba(30, 34, 43, 0.6); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;
-            display: none; flex-direction: column; z-index: 1000; resize: both; overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); color: #c9d1d9; transition: background 0.3s;
+            position: fixed; bottom: 20px; left: 20px; width: 380px; height: 200px;
+            background: rgba(30, 34, 43, 0.7); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+            display: none; flex-direction: column; z-index: 1000;
         }
-        #chat-panel:hover { background: rgba(30, 34, 43, 0.8); }
+        #chat-messages { flex: 1; padding: 10px; overflow-y: auto; font-size: 13px; }
+        .chat-input-area { display: flex; padding: 8px; background: rgba(0,0,0,0.2); gap: 5px; }
+        #chat-input { flex: 1; background: transparent; border: none; color: white; outline: none; }
 
-        .chat-tabs { display: flex; background: rgba(0, 0, 0, 0.2); border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .chat-tab {
-            flex: 1; padding: 8px 0; text-align: center; font-size: 13px; cursor: pointer;
-            color: #8b949e; user-select: none; transition: 0.2s;
+        /* 管理员面板 */
+        #admin-panel {
+            position: fixed; right: 20px; top: 20px; width: 260px;
+            background: rgba(22, 27, 34, 0.9); border: 1px solid #30363d;
+            border-radius: 12px; padding: 15px; z-index: 2000; display: none;
         }
-        .chat-tab:hover { color: white; background: rgba(255,255,255,0.05); }
-        .chat-tab.active { color: #58a6ff; font-weight: bold; border-bottom: 2px solid #58a6ff; }
+        .admin-section { margin-bottom: 15px; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
+        button { 
+            padding: 8px; border-radius: 4px; border: 1px solid #30363d; 
+            background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 12px;
+        }
+        button.active { background: #1f6feb; color: white; border-color: #388bfd; }
+        button.save-btn { width: 100%; background: #238636; border: none; font-weight: bold; margin-top: 10px; }
 
-        #chat-messages { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-        #chat-messages::-webkit-scrollbar { width: 4px; }
-        #chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
-        
-        .chat-msg { line-height: 1.4; word-break: break-all; }
-        .msg-channel { font-weight: bold; margin-right: 4px; }
-        .msg-channel.世界 { color: #d2a8ff; }
-        .msg-channel.团队 { color: #7ee787; }
-        .msg-channel.自定义 { color: #a5d6ff; }
-        .msg-channel.私聊 { color: #ff7b72; }
-        .msg-channel.系统 { color: #f2cc60; }
-        .msg-sender { font-weight: bold; margin-right: 6px; }
-
-        .chat-input-area { display: flex; padding: 8px; background: rgba(0, 0, 0, 0.3); gap: 6px; border-top: 1px solid rgba(255,255,255,0.05); }
-        #chat-target { width: 70px; display: none; background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 4px; padding: 4px 6px; font-size: 12px; outline: none; text-align: center; }
-        #chat-input { flex: 1; background: transparent; border: none; color: white; font-size: 13px; outline: none; }
-        #chat-input::placeholder { color: #6e7681; }
+        /* 登录遮罩 */
+        #auth-overlay {
+            position: fixed; inset: 0; background: #0d1117; z-index: 5000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .auth-card { width: 300px; text-align: center; }
+        input { width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: white; border-radius: 6px; margin-bottom: 15px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
-    <div id="login-screen">
-        <h1>进入 2D 世界</h1>
-        <input type="text" id="username" placeholder="输入你的角色名" maxlength="10">
-        <button id="join-btn">连接服务器</button>
+    <!-- 进入界面 -->
+    <div id="auth-overlay">
+        <div class="auth-card">
+            <h2 style="color: #58a6ff;">LEGEND MMORPG</h2>
+            <div style="text-align: left;">
+                <label>角色名</label>
+                <input type="text" id="user-name" value="玩家_1">
+                <label>地图 ID (D1 索引)</label>
+                <input type="text" id="map-id" value="forest_01">
+                <button onclick="enterWorld()" class="save-btn" style="padding: 15px; color:white;">连接服务器</button>
+            </div>
+        </div>
     </div>
 
-    <div id="game-board"></div>
-    <div id="controls-tip">操作方式：W A S D 或 方向键移动</div>
+    <!-- 管理员编辑器面板 -->
+    <div id="admin-panel">
+        <div class="admin-section">
+            <h4 style="margin:0 0 10px 0; color:#58a6ff">地图面积 (D1 Meta)</h4>
+            <div style="display:flex; gap:5px; margin-bottom:10px;">
+                <input type="number" id="inp-w" value="40" style="margin:0; padding:5px;">
+                <input type="number" id="inp-h" value="30" style="margin:0; padding:5px;">
+            </div>
+            <button onclick="previewResize()" style="width:100%">预览大小修改</button>
+        </div>
+        <div class="admin-section">
+            <h4 style="margin:0 0 10px 0; color:#58a6ff">地形画笔 (KV Binary)</h4>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px;">
+                <button class="tool-btn active" onclick="setTool(0)" id="btn-0">0: 平地</button>
+                <button class="tool-btn" onclick="setTool(1)" id="btn-1">1: 障碍</button>
+                <button class="tool-btn" onclick="setTool(2)" id="btn-2">2: 水域</button>
+                <button class="tool-btn" onclick="setTool(3)" id="btn-3">3: 跳转点</button>
+            </div>
+        </div>
+        <button onclick="saveAll()" class="save-btn" style="color:white">同步修改到云端</button>
+    </div>
 
+    <!-- 游戏视口 -->
+    <div id="game-viewport">
+        <div id="game-board"></div>
+    </div>
+
+    <!-- 聊天面板 -->
     <div id="chat-panel">
-        <div class="chat-tabs">
-            <div class="chat-tab active" data-channel="世界">世界</div>
-            <div class="chat-tab" data-channel="团队">团队</div>
-            <div class="chat-tab" data-channel="自定义">自定义</div>
-            <div class="chat-tab" data-channel="私聊">私聊</div>
-        </div>
-        <div id="chat-messages">
-            <div class="chat-msg"><span class="msg-channel 系统">[系统]</span><span style="color:#c9d1d9">欢迎来到 2D 世界！右下角可拖拽调整窗口大小。</span></div>
-        </div>
+        <div id="chat-messages"></div>
         <div class="chat-input-area">
-            <input type="text" id="chat-target" placeholder="玩家名">
-            <input type="text" id="chat-input" placeholder="按 Enter 发送消息..." maxlength="100">
+            <input type="text" id="chat-input" placeholder="按 Enter 发送消息...">
         </div>
     </div>
 
     <script>
-        const WORKER_URL = 'wss://mmo-sync-server.hl273573221.workers.dev';
-        
         let ws;
         let myId = null;
-        let playersData = {}; 
+        let mapMeta = { id: '', w: 0, h: 0, tileSize: 50 };
+        let binaryData = new Uint8Array(0);
+        let currentTool = 0;
+        let players = {};
         
-        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
-        let myX = 0; myY = 0; const SPEED = 5; 
+        const keys = { w:false, a:false, s:false, d:false, ArrowUp:false, ArrowDown:false, ArrowLeft:false, ArrowRight:false };
+        let myX = 0, myY = 0; const SPEED = 5;
 
-        const loginScreen = document.getElementById('login-screen');
-        const joinBtn = document.getElementById('join-btn');
-        const usernameInput = document.getElementById('username');
-        const gameBoard = document.getElementById('game-board');
+        // 1. 进入世界并连接
+        function enterWorld() {
+            const name = document.getElementById('user-name').value;
+            const mapId = document.getElementById('map-id').value;
+            if(!name || !mapId) return;
 
-        let currentChannel = '世界';
-        const chatPanel = document.getElementById('chat-panel');
-        const chatMessages = document.getElementById('chat-messages');
-        const chatInput = document.getElementById('chat-input');
-        const chatTarget = document.getElementById('chat-target');
-        const chatTabs = document.querySelectorAll('.chat-tab');
+            document.getElementById('auth-overlay').style.display = 'none';
+            document.getElementById('chat-panel').style.display = 'flex';
+            
+            // 简单逻辑：如果名字包含 Admin 则显示编辑器
+            if(name.toLowerCase().includes('admin')) {
+                document.getElementById('admin-panel').style.display = 'block';
+            }
 
-        joinBtn.addEventListener('click', () => {
-            const name = usernameInput.value.trim();
-            if (!name) return alert("请输入角色名！");
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws?mapId=${mapId}`);
 
-            joinBtn.innerText = "连接中...";
-            ws = new WebSocket(WORKER_URL);
+            ws.onopen = () => ws.send(JSON.stringify({ type: 'join', name }));
+            ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+            ws.onclose = () => { alert("连接已断开"); location.reload(); };
 
-            ws.onopen = () => {
-                loginScreen.style.display = 'none';
-                chatPanel.style.display = 'flex';
-                ws.send(JSON.stringify({ type: 'join', name: name }));
-                requestAnimationFrame(gameLoop);
-            };
+            requestAnimationFrame(gameLoop);
+        }
 
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                handleServerMessage(data);
-            };
-
-            ws.onclose = () => {
-                alert("与服务器断开连接");
-                location.reload();
-            };
-        });
-
-        function handleServerMessage(data) {
-            switch (data.type) {
+        // 2. 处理服务器消息
+        function handleMessage(msg) {
+            switch(msg.type) {
                 case 'init':
-                    myId = data.id;
-                    playersData = data.players;
-                    myX = playersData[myId].x;
-                    myY = playersData[myId].y;
-                    for (const id in playersData) createPlayerDOM(id, playersData[id]);
-                    break;
-                case 'join':
-                    playersData[data.id] = data.player;
-                    if (data.id !== myId) {
-                        createPlayerDOM(data.id, data.player);
-                        appendMessage({ channel: '系统', text: `玩家 ${data.player.name} 加入了世界。` });
+                case 'map_sync':
+                    mapMeta.id = msg.meta.id;
+                    mapMeta.w = msg.meta.width;
+                    mapMeta.h = msg.meta.height;
+                    binaryData = new Uint8Array(msg.binary);
+                    document.getElementById('inp-w').value = mapMeta.w;
+                    document.getElementById('inp-h').value = mapMeta.h;
+                    renderMap();
+                    if(msg.type === 'init') {
+                        myId = msg.myId;
+                        myX = msg.spawnX || 100; myY = msg.spawnY || 100;
                     }
                     break;
-                case 'move':
-                    if (playersData[data.id] && data.id !== myId) {
-                        playersData[data.id].x = data.x;
-                        playersData[data.id].y = data.y;
-                        updatePlayerDOM(data.id, data.x, data.y);
-                    }
-                    break;
-                case 'leave':
-                    if (playersData[data.id]) {
-                        appendMessage({ channel: '系统', text: `玩家 ${playersData[data.id].name} 离开了世界。` });
-                        delete playersData[data.id];
-                    }
-                    const el = document.getElementById(`player-${data.id}`);
-                    if (el) el.remove();
+                case 'player_update':
+                    updatePlayers(msg.players);
                     break;
                 case 'chat':
-                    appendMessage(data);
-                    if (data.id && playersData[data.id]) {
-                        showChatBubble(data.id, data.text);
-                    }
+                    appendMsg(msg);
+                    if(msg.playerId) showBubble(msg.playerId, msg.text);
                     break;
             }
         }
 
-        function createPlayerDOM(id, player) {
-            const el = document.createElement('div');
-            el.id = `player-${id}`;
-            el.className = 'player';
-            el.style.backgroundColor = player.color;
-            el.style.left = `${player.x}px`;
-            el.style.top = `${player.y}px`;
+        function renderMap() {
+            const board = document.getElementById('game-board');
+            board.style.width = (mapMeta.w * mapMeta.tileSize) + 'px';
+            board.style.height = (mapMeta.h * mapMeta.tileSize) + 'px';
+            board.innerHTML = ''; 
 
-            if (id === myId) el.style.border = "3px solid #f1c40f";
-
-            const nameTag = document.createElement('div');
-            nameTag.className = 'player-name';
-            nameTag.innerText = player.name;
-            el.appendChild(nameTag);
-
-            gameBoard.appendChild(el);
-        }
-
-        function updatePlayerDOM(id, x, y) {
-            const el = document.getElementById(`player-${id}`);
-            if (el) {
-                el.style.left = `${x}px`;
-                el.style.top = `${y}px`;
-            }
-        }
-
-        chatTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                chatTabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                currentChannel = tab.dataset.channel;
-                
-                if (currentChannel === '私聊') {
-                    chatTarget.style.display = 'block'; chatTarget.focus();
-                } else {
-                    chatTarget.style.display = 'none'; chatInput.focus();
-                }
+            binaryData.forEach((type, i) => {
+                if(type === 0) return;
+                const x = (i % mapMeta.w) * mapMeta.tileSize;
+                const y = Math.floor(i / mapMeta.w) * mapMeta.tileSize;
+                const tile = document.createElement('div');
+                tile.className = `tile tile-${type}`;
+                tile.style.left = x + 'px'; tile.style.top = y + 'px';
+                board.appendChild(tile);
             });
-        });
+            // 重新挂载玩家
+            Object.values(players).forEach(p => board.appendChild(p.el));
+        }
 
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const text = chatInput.value.trim();
-                if (!text) return;
-                const target = chatTarget.value.trim();
-                if (currentChannel === '私聊' && !target) {
-                    appendMessage({ channel: '系统', text: '请输入私聊玩家名' });
-                    return;
+        function updatePlayers(data) {
+            const board = document.getElementById('game-board');
+            for(let id in data) {
+                if(!players[id]) {
+                    const el = document.createElement('div');
+                    el.className = 'player';
+                    el.style.backgroundColor = data[id].color || '#3498db';
+                    el.innerHTML = `<div class="player-name">${data[id].name}</div>`;
+                    board.appendChild(el);
+                    players[id] = { el, data: data[id] };
                 }
-                ws.send(JSON.stringify({ type: 'chat', channel: currentChannel, target: target, text: text }));
-                chatInput.value = ''; 
+                players[id].el.style.left = data[id].x + 'px';
+                players[id].el.style.top = data[id].y + 'px';
             }
-        });
-
-        function appendMessage(msg) {
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'chat-msg';
-            
-            let html = `<span class="msg-channel ${msg.channel}">[${msg.channel}]</span>`;
-            if (msg.sender) {
-                html += `<span class="msg-sender" style="color: ${msg.color || '#fff'}">${msg.sender}:</span>`;
+            for(let id in players) {
+                if(!data[id]) { players[id].el.remove(); delete players[id]; }
             }
-            msgDiv.innerHTML = html;
-
-            const textSpan = document.createElement('span');
-            textSpan.style.color = '#c9d1d9';
-            textSpan.textContent = msg.text; 
-            msgDiv.appendChild(textSpan);
-            
-            chatMessages.appendChild(msgDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        function showChatBubble(playerId, text) {
-            const playerEl = document.getElementById(`player-${playerId}`);
-            if (!playerEl) return;
-
-            const oldBubble = playerEl.querySelector('.chat-bubble');
-            if (oldBubble) oldBubble.remove();
-
-            const bubble = document.createElement('div');
-            bubble.className = 'chat-bubble';
-            bubble.textContent = text; 
-
-            playerEl.appendChild(bubble);
-
-            setTimeout(() => {
-               if (bubble.parentElement) {
-                   bubble.remove();
-               }
-            }, 5000);
+        // 3. 管理员编辑器逻辑
+        function setTool(t) {
+            currentTool = t;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${t}`).classList.add('active');
         }
 
-        window.addEventListener('keydown', e => { 
-            if (e.target.tagName === 'INPUT') return; 
-            const k = e.key.toLowerCase();
-            if (keys.hasOwnProperty(k)) keys[k] = true; 
-            if (keys.hasOwnProperty(e.key)) keys[e.key] = true; 
-        });
-        
-        window.addEventListener('keyup', e => { 
-            if (e.target.tagName === 'INPUT') return;
-            const k = e.key.toLowerCase();
-            if (keys.hasOwnProperty(k)) keys[k] = false; 
-            if (keys.hasOwnProperty(e.key)) keys[e.key] = false; 
-        });
+        document.getElementById('game-board').onclick = (e) => {
+            if(document.getElementById('admin-panel').style.display === 'none') return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const gx = Math.floor((e.clientX - rect.left) / mapMeta.tileSize);
+            const gy = Math.floor((e.clientY - rect.top) / mapMeta.tileSize);
+            if(gx >= 0 && gx < mapMeta.w && gy >= 0 && gy < mapMeta.h) {
+                binaryData[gy * mapMeta.w + gx] = currentTool;
+                renderMap();
+            }
+        };
+
+        function previewResize() {
+            const nw = parseInt(document.getElementById('inp-w').value);
+            const nh = parseInt(document.getElementById('inp-h').value);
+            const next = new Uint8Array(nw * nh);
+            for(let y=0; y<Math.min(nh, mapMeta.h); y++) {
+                for(let x=0; x<Math.min(nw, mapMeta.w); x++) {
+                    next[y * nw + x] = binaryData[y * mapMeta.w + x];
+                }
+            }
+            binaryData = next; mapMeta.w = nw; mapMeta.h = nh; renderMap();
+        }
+
+        function saveAll() {
+            ws.send(JSON.stringify({
+                type: 'admin_save',
+                meta: { id: mapMeta.id, width: mapMeta.w, height: mapMeta.h },
+                binary: Array.from(binaryData)
+            }));
+            alert("已同步至云端！");
+        }
+
+        // 4. 聊天与气泡
+        const chatInput = document.getElementById('chat-input');
+        chatInput.onkeydown = (e) => {
+            if(e.key === 'Enter' && chatInput.value.trim()) {
+                ws.send(JSON.stringify({ type: 'chat', text: chatInput.value }));
+                chatInput.value = '';
+            }
+        };
+
+        function appendMsg(msg) {
+            const div = document.createElement('div');
+            div.style.marginBottom = '5px';
+            div.innerHTML = `<span style="color:#58a6ff; font-weight:bold;">${msg.sender}: </span>${msg.text}`;
+            const msgBox = document.getElementById('chat-messages');
+            msgBox.appendChild(div);
+            msgBox.scrollTop = msgBox.scrollHeight;
+        }
+
+        function showBubble(id, text) {
+            if(!players[id]) return;
+            const old = players[id].el.querySelector('.chat-bubble');
+            if(old) old.remove();
+            const b = document.createElement('div');
+            b.className = 'chat-bubble'; b.textContent = text;
+            players[id].el.appendChild(b);
+            setTimeout(() => b.remove(), 5000);
+        }
+
+        // 5. 循环
+        window.onkeydown = (e) => { if(e.target.id !== 'chat-input') keys[e.key] = true; };
+        window.onkeyup = (e) => { if(e.target.id !== 'chat-input') keys[e.key] = false; };
 
         function gameLoop() {
             if (myId) {
@@ -342,10 +331,7 @@
                 if (keys.s || keys.ArrowDown)  { myY += SPEED; moved = true; }
                 if (keys.a || keys.ArrowLeft)  { myX -= SPEED; moved = true; }
                 if (keys.d || keys.ArrowRight) { myX += SPEED; moved = true; }
-                myX = Math.max(15, Math.min(window.innerWidth - 15, myX));
-                myY = Math.max(15, Math.min(window.innerHeight - 15, myY));
                 if (moved) {
-                    updatePlayerDOM(myId, myX, myY);
                     ws.send(JSON.stringify({ type: 'move', x: myX, y: myY }));
                 }
             }
