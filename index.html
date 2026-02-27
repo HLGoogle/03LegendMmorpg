@@ -43,26 +43,32 @@
             font-size: 12px; white-space: nowrap; pointer-events: none;
         }
 
-        /* 【新增】头顶聊天气泡样式 */
+        /* 【优化修复】聊天气泡样式 */
         .chat-bubble {
             position: absolute;
-            bottom: 40px; /* 在玩家上方 */
+            bottom: 40px; 
             left: 50%;
             transform: translateX(-50%);
             background-color: white;
             color: #333;
-            padding: 6px 12px;
+            padding: 8px 14px;
             border-radius: 12px;
-            font-size: 13px;
-            white-space: normal; /* 允许换行 */
-            max-width: 180px; /* 最大宽度限制 */
+            font-size: 14px;
+            line-height: 1.4;
+            /* 关键修复属性 */
+            width: max-content;      /* 强制气泡根据文字内容撑开，不收缩到 30px */
+            min-width: 40px;        /* 保证最短宽度 */
+            max-width: 220px;       /* 超过这个宽度后再换行 */
+            white-space: normal;    /* 允许换行 */
+            word-wrap: break-word;  /* 英文长字符串折行 */
+            
             text-align: center;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             z-index: 50;
-            pointer-events: none; /* 不阻挡鼠标事件 */
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 弹出动画 */
+            pointer-events: none;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        /* 气泡底部的小尖角 */
+        
         .chat-bubble::after {
             content: ''; position: absolute; top: 100%; left: 50%; margin-left: -6px;
             border-width: 6px; border-style: solid; border-color: white transparent transparent transparent;
@@ -136,7 +142,6 @@
     </div>
 
     <script>
-        // 【重要】在这里填入你部署好的 Worker 地址
         const WORKER_URL = 'wss://mmo-sync-server.hl273573221.workers.dev';
         
         let ws;
@@ -158,7 +163,6 @@
         const chatTarget = document.getElementById('chat-target');
         const chatTabs = document.querySelectorAll('.chat-tab');
 
-        // --- 1. 登录与连接 WebSocket ---
         joinBtn.addEventListener('click', () => {
             const name = usernameInput.value.trim();
             if (!name) return alert("请输入角色名！");
@@ -184,7 +188,6 @@
             };
         });
 
-        // --- 2. 处理服务器数据 ---
         function handleServerMessage(data) {
             switch (data.type) {
                 case 'init':
@@ -217,8 +220,7 @@
                     if (el) el.remove();
                     break;
                 case 'chat':
-                    appendMessage(data); // 1. 面板显示消息
-                    // 2. 【新增】显示头顶气泡（如果是玩家发的消息）
+                    appendMessage(data);
                     if (data.id && playersData[data.id]) {
                         showChatBubble(data.id, data.text);
                     }
@@ -226,7 +228,6 @@
             }
         }
 
-        // --- 3. DOM 渲染 ---
         function createPlayerDOM(id, player) {
             const el = document.createElement('div');
             el.id = `player-${id}`;
@@ -253,7 +254,6 @@
             }
         }
 
-        // --- 4. 聊天相关逻辑 ---
         chatTabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 chatTabs.forEach(t => t.classList.remove('active'));
@@ -282,45 +282,38 @@
             }
         });
 
-        // 【重要修复】安全的追加消息函数 (修复 XSS 漏洞)
         function appendMessage(msg) {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'chat-msg';
             
-            // 1. 安全的 HTML 部分 (频道和发送者)
             let html = `<span class="msg-channel ${msg.channel}">[${msg.channel}]</span>`;
             if (msg.sender) {
                 html += `<span class="msg-sender" style="color: ${msg.color || '#fff'}">${msg.sender}:</span>`;
             }
-            msgDiv.innerHTML = html; // 设置前半部分
+            msgDiv.innerHTML = html;
 
-            // 2. 【安全修复】使用 textContent 插入用户输入的内容
             const textSpan = document.createElement('span');
             textSpan.style.color = '#c9d1d9';
             textSpan.textContent = msg.text; 
-            msgDiv.appendChild(textSpan); // 追加安全的文本节点
+            msgDiv.appendChild(textSpan);
             
             chatMessages.appendChild(msgDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // 【新增】显示头顶气泡函数
         function showChatBubble(playerId, text) {
             const playerEl = document.getElementById(`player-${playerId}`);
             if (!playerEl) return;
 
-            // 如果已有气泡，先移除旧的，避免堆叠
             const oldBubble = playerEl.querySelector('.chat-bubble');
             if (oldBubble) oldBubble.remove();
 
             const bubble = document.createElement('div');
             bubble.className = 'chat-bubble';
-            // 【安全】使用 textContent 防止 XSS
             bubble.textContent = text; 
 
             playerEl.appendChild(bubble);
 
-            // 5秒后自动移除
             setTimeout(() => {
                if (bubble.parentElement) {
                    bubble.remove();
@@ -328,7 +321,6 @@
             }, 5000);
         }
 
-        // --- 5. 游戏循环与控制 ---
         window.addEventListener('keydown', e => { 
             if (e.target.tagName === 'INPUT') return; 
             const k = e.key.toLowerCase();
